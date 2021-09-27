@@ -1,3 +1,6 @@
+# i8kutils with cpu temp averaging
+## Use i8kmon for simple average (t1+t2+t3+t4)/4
+## Use i8kmon2 for realtime averageing (curr+prev)/2
 # Package up for adoption
 
 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=948521
