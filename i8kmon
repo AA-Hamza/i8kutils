@@ -17,8 +17,9 @@
 #
 # Ahmed Anwar:
 #   This fork only adds averaging capabilities to cpu temp.
-#   This version takes the cpu temp every second then divides them by timeout when requested.
-#   for example if you set timeout to be 4s. The cpu temps will be (t1+t2+t3+t4)/4
+#   This version takes the cpu temp every second and adds it to the prev one and divides by 2
+#   for example if you cpu read for second1: 50 and for second2: 80. Cpu temp will average to (80+50)/2=65 
+#   and then for second3: 50 it would be (65+50)/2= 57
 
 array set config {
     sysconfig	/etc/i8kutils/i8kmon.conf
@@ -29,6 +30,8 @@ array set config {
     verbose	0
     timeout	2
     t_high	80
+    cpu_average_timer 1
+    cpu_old_value_persist 3
     0		{{0 0}  -1  60  -1  65}
     1		{{1 0}  50  70  55  75}
     2		{{1 1}  60  80  65  85}
@@ -38,20 +41,20 @@ array set config {
 array set status {
     leftspeed		{}
     rightspeed		{}
-    nfans		    2
+    nfans		2
     acpi_timer		0
-    state		    0
-    temp		    0
+    state		0
+    temp		0
     average_temp	0
-    lstate		    -2
-    rstate		    -2
-    lspeed		    0
-    rspeed		    0
-    lstuck		    0
-    rstuck		    0
-    ac			    0
-    t_low		    0
-    t_high		    0
+    lstate		-2
+    rstate		-2
+    lspeed		0
+    rspeed		0
+    lstuck		0
+    rstuck		0
+    ac			0
+    t_low		0
+    t_high		0
 }
 
 proc read_config {} {
@@ -109,10 +112,10 @@ proc cpu_temp_average_timer {} {
     global status
 
     set curr_temp [eval exec "i8kctl temp"]
-    set temp [expr $status(average_temp) + $curr_temp]
-    set status(average_temp) $temp
+    set temp [expr ($status(average_temp)*$config(cpu_old_value_persist)) + $curr_temp]
+    set status(average_temp) [expr $temp/($config(cpu_old_value_persist)+1)]
 
-    after [expr 1000] {cpu_temp_average_timer}
+    after [expr $config(cpu_average_timer)*1000] {cpu_temp_average_timer}
 }
 
 proc status_timer {} {
@@ -121,9 +124,7 @@ proc status_timer {} {
 
     # Reschedule status timer
     after [expr $config(timeout)*1000] {status_timer}
-    set status(average_temp) [expr $status(average_temp)/$config(timeout)]
 
-    #set steps [expr 1/$config(timeout)]
     check_status
 }
 
@@ -143,7 +144,6 @@ proc read_i8k_status {} {
     global status
 
     set status(temp) $status(average_temp)
-    set status(average_temp) 0
     set state [eval exec "i8kctl fan"]
     set status(lstate) [lindex $state 0]
     set status(rstate) [lindex $state 1]
